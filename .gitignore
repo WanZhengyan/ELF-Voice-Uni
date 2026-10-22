@@ -1,0 +1,41 @@
+# Allowlist: only what the README's pipeline needs is published. Everything
+# else in this working directory (experiments, reports, data, caches, runs)
+# stays local.
+/*
+!/.gitignore
+!/README.md
+!/requirements.txt
+
+# model and training
+!/unified.py
+!/elf_tts/
+!/train_unified.py
+!/sample_unified.py
+
+# preprocessing
+!/preprocess_libri.py
+!/preprocess_libritts.py
+!/preprocess_whisper.py
+!/preprocess_spk.py
+!/tools/
+/tools/*
+!/tools/validate_multispk_caches.py
+
+# evaluation
+!/eval_lj.py
+!/eval_protocol.py
+!/eval_s2t_full.py
+!/gen_f5_protocol.py
+!/score_f5_official.py
+!/score_elf_s2t.py
+
+# cluster job scripts
+!/slurm/
+/slurm/*
+!/slurm/submit_multispk_train.sh
+!/slurm/submit_prep_multispk.sh
+
+__pycache__/
+*.pyc
+*.bak
+*.pre_*

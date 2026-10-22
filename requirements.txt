@@ -1,0 +1,12 @@
+# Install torch first, matched to your CUDA version:
+#   pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+torchaudio==2.6.0
+soundfile
+scipy
+numpy
+einops
+pyyaml
+huggingface_hub
+transformers        # Whisper, for the WER metric
+wandb               # optional, training curves
+jiwer               # ELF-S2T's WER scoring (score_elf_s2t.py)
