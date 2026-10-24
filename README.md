@@ -22,30 +22,33 @@ Speech and text sit side by side in one sequence, and the model learns to genera
 
 ## Results
 
-Checkpoint `ms_unified_100k`, 100K training steps. Evaluated with each paper's own protocol: synthesis follows F5-TTS's inference rules and is scored with F5-TTS's official scoring code (our ground-truth row matches F5-TTS Table 9); recognition uses ELF-S2T's sampler and scoring.
+Checkpoint `ms_f5x_100k`, 100K training steps. It saw about as much synthesis audio as F5-TTS small did in its 100K steps (30.5B vs 30.7B mel frames). Evaluated with each paper's own protocol: synthesis follows F5-TTS's inference rules and is scored with F5-TTS's official scoring code (our ground-truth row matches F5-TTS Table 9); recognition uses ELF-S2T's sampler and scoring.
 
 **Zero-shot TTS** — LibriSpeech-PC test-clean, 1,127 pairs, unseen speakers
 
 | | WER ↓ | Speaker similarity ↑ | UTMOS ↑ |
 |---|---|---|---|
-| **ELF-Voice** | 12.5 | 0.239 | 2.19 |
+| **ELF-Voice** (mean of 3 generation seeds) | 6.37 | 0.231 | 2.66 |
 | F5-TTS small, 100K steps | 29.5 | 0.53 | 3.78 |
+| F5-TTS small, 200K steps | 4.58 | 0.59 | 4.07 |
 | Real recordings | 2.22 | 0.695 | 4.10 |
 
 **Speech recognition** — LibriSpeech test-clean, all 2,620 utterances
 
 | | WER ↓ |
 |---|---|
-| **ELF-Voice** (ELF-S2T's SDE sampler) | 14.24 |
-| **ELF-Voice** (Euler ODE sampler) | 13.68 |
+| **ELF-Voice** (ELF-S2T's SDE sampler) | 14.06 |
+| **ELF-Voice** (Euler ODE sampler) | 12.98 |
 | ELF-S2T, ELF-B (recognition only) | 10.50 |
+
+Other checkpoints (an earlier unified model with a tenth of the synthesis audio, and a single-speaker LJSpeech model) and their results are on the [Hugging Face page](https://huggingface.co/ZhengyanWan/ELF-Voice).
 
 ## Use the checkpoint
 
 ```python
 import torch
 from eval_lj import load_model
-ck = torch.load("ms_unified_100k/ckpt.pt", map_location="cpu", weights_only=False)
+ck = torch.load("ms_f5x_100k/ckpt.pt", map_location="cpu", weights_only=False)
 model, vocab = load_model(ck, torch.device("cuda"))
 ```
 
@@ -83,10 +86,10 @@ python preprocess_spk.py      --cache cache_libritts_train_clean_360 --split tra
 python tools/validate_multispk_caches.py
 ```
 
-**4. Train** — 4 GPUs, 100K steps; each step has 16 recognition rows and 32 synthesis rows:
+**4. Train** — 4 GPUs, 100K steps. Each step has 224 rows (14 per GPU × 4 GPUs × 4 gradient-accumulation steps): 16 recognition rows and 208 synthesis rows, each synthesis row packed with several sentences of one speaker. That is about 305K mel frames of synthesis audio per step, as in F5-TTS small (307,200). The two tasks' losses are averaged separately and weighted 0.07 (recognition) and 0.93 (synthesis).
 
 ```bash
-MODE=unified sbatch slurm/submit_multispk_train.sh
+MODE=f5x sbatch slurm/submit_multispk_train.sh
 ```
 
 The full `torchrun ... train_unified.py` command and its options are in that script.
@@ -95,13 +98,14 @@ The full `torchrun ... train_unified.py` command and its options are in that scr
 
 ```bash
 # synthesis: generate the 1,127 pairs, then score with F5-TTS's official code
-python gen_f5_protocol.py --ckpt runs/ms_unified/ckpt_100000.pt --corpus libri --cfg 3 --sway -1 \
-       --out out/f5/ms_unified_libri
-python score_f5_official.py --run out/f5/ms_unified_libri --corpus libri
-# recognition: all of test-clean with ELF-S2T's sampler, then ELF-S2T's scoring
-python eval_s2t_full.py --ckpt runs/ms_unified/ckpt_100000.pt --sampler elf_sde --nfe 128 --acfg 2.0 \
-       --out out/paper/ms_unified_s2t.json
-python score_elf_s2t.py out/paper/ms_unified_s2t.json
+# (repeat with --seed 1 and --seed 2; the table reports the mean)
+python gen_f5_protocol.py --ckpt runs/ms_f5x/ckpt_100000.pt --corpus libri --cfg 3 --sway -1 --seed 0 \
+       --out out/f5/ms_f5x_libri_s0
+python score_f5_official.py --run out/f5/ms_f5x_libri_s0 --corpus libri
+# recognition: all of test-clean with ELF-S2T's sampler (or --sampler ode), then ELF-S2T's scoring
+python eval_s2t_full.py --ckpt runs/ms_f5x/ckpt_100000.pt --sampler elf_sde --nfe 128 --acfg 2.0 \
+       --out out/paper/ms_f5x_s2t.json
+python score_elf_s2t.py out/paper/ms_f5x_s2t.json
 ```
 
 `score_f5_official.py` runs in a separate environment with [F5-TTS](https://github.com/SWivid/F5-TTS) installed under `third_party/F5-TTS` and its WavLM-large speaker-verification checkpoint (see the F5-TTS evaluation README).

@@ -20,7 +20,7 @@ R="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$R"; source .venv/bin/activate
 export TMPDIR="$R/tmp"; mkdir -p "$TMPDIR"
 export TOKENIZERS_PARALLELISM=false   # SpeakerPack tokenises inside DataLoader workers
-MODE="${MODE:?unified|ttsonly}"
+MODE="${MODE:?unified|ttsonly|f5x}"
 STEPS="${STEPS:-100000}"; EVERY=2000; KEEP=25000
 OUT="${RUN:-$R/runs/ms_$MODE}"
 LOGEVERY=100
